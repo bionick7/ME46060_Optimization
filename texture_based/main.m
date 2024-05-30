@@ -3,6 +3,7 @@ clear all;
 echo off;
 
 seed = randi(intmax("uint32"), 1, "uint32")
+%seed = 0.4716;
 rng(seed);
 
 [position_map, normal_map] = get_position_normals("test_obj");
@@ -14,7 +15,8 @@ normal_interpolant = griddedInterpolant({map_size_xx, map_size_yy}, normal_map);
 
 maps = struct('size', map_size, 'position_interpolant', position_interpolant, 'normal_interpolant', normal_interpolant);
 
-custom_x = [0 0.01 0; 0.25 0.01 0; 0 0.999 0; 0.25 0.999 0; 0.75 0.6 0.0; 0.25 0.6 0.0];
+%custom_x = [0 0.01 0; 0.25 0.01 0; 0 0.999 0; 0.25 0.999 0; 0.75 0.6 0.0; 0.25 0.6 0.0];
+custom_x = [0.167 0.5 0.25; 0.333 0.5 -0.25; 0.5 0.5 0.25; 0.667 0.5 -0.25; 0.833 0.5 0.25; 0 0.5 -0.25];
 
 %plot_sampling_verification(position_map, normal_map, maps);
 
@@ -24,15 +26,15 @@ fun = @(x)objective_fun(x,maps);
 %[x, y, exit, output] = fminunc(fun, state, optimset('Display', 'iter'))
 %[x, y] = simulannealbnd(fun,x0, zeros(18), ones(18), optimoptions('simulannealbnd', 'InitialTemperature', 500))
 %[x, y] = patternsearch(fun, x0)
-%[x, y] = fminunc(fun, custom_x)
+%[x, y] = fminunc(fun, x0)
 [x, y] = ga(fun, 18)
+
+%[x, y] = fminunc(fun, custom_x)
 
 %gs = GlobalSearch;
 %problem = createOptimProblem('fmincon','x0',x0,...
 %   'objective',fun,'lb',zeros([18 1]),'ub',ones([18 1]));
 %x = run(gs,problem)
-
-%x = custom_x;
 
 x = mod(reshape(x, [6 3]), ones([6 3]));
 
@@ -46,7 +48,7 @@ save_results(x, maps);
 
 % Store the results in a json file, so that blender can present it again (for sanity check)
 function save_results(x, maps)
-    [rr, nn] = get_position_normal_at(x, maps);
+    [rr, nn] = get_position_normal_sphere(x);
     y = objective_fun(x, maps);
     F = thrust(x, maps)
     A = [cross(rr, nn), nn]';
@@ -63,9 +65,9 @@ function F = thrust(state, maps)
     state = mod(reshape(state, [6 3]), ones([6 3]));
     %test_outputs = vertcat([eye(3) -eye(3)], zeros([3 6]));
     test_outputs = vertcat(eye(3), zeros(3));
-    %test_outputs = [1 0 0 0 0 0]';
+    %test_outputs = [0 0 1 0 0 0]';
     
-    [rr, nn] = get_position_normal_at(state, maps);
+    [rr, nn] = get_position_normal_sphere(state);
     A = [cross(rr, nn), nn]';
     F = linsolve(A, test_outputs);
 end
@@ -78,7 +80,7 @@ end
 function plot_sampling_verification(position_map, normal_map, maps)
     N = 10000;
     state = rand([N 3]);
-    [positions_pts, normal_pts] = get_position_normal_at(state, maps);
+    [positions_pts, normal_pts] = get_position_normal_sphere(state);
         
     % Positions
     figure();
