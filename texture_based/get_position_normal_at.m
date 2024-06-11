@@ -5,6 +5,11 @@ function [position, direction] = get_position_normal_at(pt, maps)
     rotation = squeeze(pt(:, 3)) * pi;
     position = squeeze(maps.position_interpolant(pt_adj));
     normal = squeeze(maps.normal_interpolant(pt_adj));
+    
+    t = maps.sphere_factor;
+    normalized = position ./ repmat(vecnorm(position, 2, 2), [1 3]); % Normalization
+    position = normalized * t + position * (1 - t);
+    normal = normalized * t + normal * (1 - t);
 
     % Gram-schmidt process to project onto y plane
     tang1_direction = [0 1 0] - normal .* repmat(normal(:,2), [1 3]); % Find tangent
