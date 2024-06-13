@@ -1,8 +1,9 @@
 clc;
-clear all;
-close all;
+%clear all;
+%close all;
 echo off;
 
+PLOT_ANNEAHLING_OUTP = true;
 SHOW_PLOT = true;
 SHOW_GRID = false;
 SHOW_PROFILE = false;
@@ -17,14 +18,26 @@ tt = 0:0.001:1;
 
 model = struct('Xs', xs, 'Ys', ys, 'Ts', t);
 x0 = rand([1 2]);
-%[x, y] = simulannealbnd(@(x)objective_func(x, model), x0)
 %[x, y] = ga(@(x)objective_func(x, model), 2)
 
-problem = createOptimProblem('fmincon','objective', @(x)objective_func(x, model),...
-                             'x0',x0,'lb',[0 0],'ub', [1 1]);
-          %'nonlcon',apertureConstraint_x,'options',opts);
-gs = GlobalSearch;
-[x,y] = run(gs, problem)
+%problem = createOptimProblem('fmincon','objective', @(x)objective_func(x, model),...
+    %                             'x0',x0,'lb',[0 0],'ub', [1 1]);
+    %          %'nonlcon',apertureConstraint_x,'options',opts);
+    %gs = GlobalSearch;
+    %[x,y] = run(gs, problem)
+    
+%[x, y] = simulannealbnd(@(x)objective_func(x, model), x0, [], [], optimset('Display', 'iter'))
+[x, y, step_info] = simulated_annealing(@(x)objective_func(x, model), x0);
+[x, y] = fminunc(@(x)objective_func(x, model), x)
+
+if PLOT_ANNEAHLING_OUTP
+    figure(1)
+    plot(1:length(step_info), step_info(1,:));
+    hold on;
+    plot(1:length(step_info), step_info(2,:)/100);
+    %plot(1:length(step_info), step_info(3,:)/100);
+    hold off;
+end
 
 % Works: 
 % genetic algorythms
@@ -35,12 +48,13 @@ gs = GlobalSearch;
 % particleswarm
 
 x_mod = mod([1-x(1) x]', ones([3 1]));
+A = get_rcs_matrix(x_mod, model);
 
 xx = interp1(t, xs, tt);
 yy = interp1(t, ys, tt);
 
 if SHOW_PLOT
-    figure(1);
+    figure(2);
     hold on;
     plot(xs,ys,'rx');
     plot(xx,yy,'r-');
@@ -59,7 +73,7 @@ if SHOW_GRID
             grid(x_p, y_p) = objective_func([x_p y_p] / N, model);
         end
     end
-    figure(2);
+    figure(3);
     %imshow(grid, 'XData', [0 1], 'YData', [0 1], 'DisplayRange', Y_RANGE);
     %hold on; 
     [mesh_xx, mesh_yy] = meshgrid((1:N)/N);
@@ -80,7 +94,7 @@ if SHOW_PROFILE
         ff(i) = objective_func([x_p 0.5], model);
     end
 
-    figure(3);
+    figure(4);
     plot(xx, ff);
     ylim(Y_RANGE);
 end
@@ -92,7 +106,7 @@ function y = objective_func(state, model)
     %y = double(norm(reshape(F, [], 1), 20));
     %y = 1/y;
     %y = dot(F, F.*[1 1 -1]');
-    y = -double(norm([det(A), 0.1]));
+    y = -double(det(A)^2);
 end
 
 function A = get_rcs_matrix(state, model)
@@ -100,8 +114,9 @@ function A = get_rcs_matrix(state, model)
     py = interp1(model.Ts, model.Ys, state);
     dx = (interp1(model.Ts, model.Xs, state+0.001) - px) / 0.001;
     dy = (interp1(model.Ts, model.Ys, state+0.001) - py) / 0.001;
-    dx = dx ./ sqrt(dx.*dx+dy.*dy);
-    dy = dy ./ sqrt(dx.*dx+dy.*dy);
+    l = sqrt(dx.*dx+dy.*dy);
+    dx = dx ./ l;
+    dy = dy ./ l;
     torques = px.*dy - py.*dx;
     
     A = [dx dy torques]';

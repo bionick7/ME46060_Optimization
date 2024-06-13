@@ -2,6 +2,8 @@
 %clear all;
 echo off;
 
+PLOT_ANNEAHLING_OUTP = true;
+
 seed = randi(intmax("uint32"), 1, "uint32")
 %seed = 1046065145;
 rng(seed);
@@ -38,12 +40,12 @@ maps = struct(...
 %custom_x = [0 0.01 0; 0.25 0.01 0; 0 0.999 0; 0.25 0.999 0; 0.75 0.6 0.0; 0.25 0.6 0.0];
 %% Best spherical
 %custom_x = [52.4039 -54.5439 25.8002 -56.5655 -16.4605 5.6100 17.5807 61.1205 11.4135 6.9723 14.9902 -43.1983];
-custom_x = [0.6877 0.3709 0.8006 0.4998 0.3860 0.6231 0.5913 0.5616 0.7475 0.7572 0.9968 0.4998];
+%custom_x = [0.6877 0.3709 0.8006 0.4998 0.3860 0.6231 0.5913 0.5616 0.7475 0.7572 0.9968 0.4998];
 
 %plot_sampling_verification(position_map, normal_map, maps);
 
 % Initialize the state randomly
-N_x = 12;
+N_x = 9;
 x0 = rand([N_x 1]);
 fun = @(x)objective_fun(x,maps);
 fun_con = @(x)objective_fun(x,maps) + 100 * max(constraints(x, maps), 0)^2;
@@ -51,7 +53,8 @@ fun_con = @(x)objective_fun(x,maps) + 100 * max(constraints(x, maps), 0)^2;
 %[x, y] = patternsearch(fun_con, x0)
 %[x, y] = fminunc(fun, x0)
 
-[x, y] = ga(fun_con, N_x)
+%[x, y] = ga(fun_con, N_x)
+%[x, y] = ga(fun, N_x, [], [], [], [], [], [], @(x)constraints(x,maps))
 %[x, y] = patternsearch(fun_con, x0)
 %[x, y] = particleswarm(fun_con, N_x)
 %[x, y] = simulannealbnd(fun_con, custom_x, [], [])
@@ -62,10 +65,52 @@ fun_con = @(x)objective_fun(x,maps) + 100 * max(constraints(x, maps), 0)^2;
 %    optimset('Display', 'iter'))
 %return
 
-gs = GlobalSearch;
-problem = createOptimProblem('fmincon','x0',x,...
-        'objective',fun,'nonlcon', @(x)constraints(x,maps));
-[x, y] = run(gs,problem)
+%ms = MultiStart('StartPointsToRun', 'bounds-ineqs', 'UseParallel', true, 'Display', 'iter');
+%gs = GlobalSearch;
+%problem = createOptimProblem('fmincon','x0',x,'objective',fun,'nonlcon', @(x)constraints(x,maps));
+
+y = 0;
+x = zeros([N_x 1]);
+
+%[xloc, yloc] = simulannealbnd(fun_con, x0_loc, [], [], optimoptions(@simulannealbnd, 'Display', 'iter'))
+[xloc, yloc, step_info] = simulated_annealing(fun_con, x, 100, 1000);
+
+if PLOT_ANNEAHLING_OUTP
+    figure(1)
+    plot(1:length(step_info), step_info(1,:));
+    hold on;
+    plot(1:length(step_info), step_info(2,:)/100);
+    plot(1:length(step_info), step_info(3,:)/100);
+    ylim([-1 1])
+    hold off;
+end
+return
+
+for i = 1:10
+    x0_loc = informed_initial_guess();
+    while constraints(x0_loc, maps) > 0
+        x0_loc = informed_initial_guess();
+    end
+    %x0_loc = mod(x0_loc, 1);
+    %[xloc, yloc] = fmincon(fun, x0_loc, [], [], [], [], [], [], @(x)constraints(x, maps), ...
+    %               optimoptions(@fmincon, 'Display', 'off'));
+    %[xloc, yloc] = simulannealbnd(fun_con, x0_loc, [], [], optimoptions(@simulannealbnd, 'Display', 'off'));
+    [xloc, yloc] = simulated_annealing(fun_con, x0_loc, 100, 10000);
+    [xloc, yloc] = fminunc(fun_con, xloc, optimoptions(@fminunc, 'Display', 'off'));
+    fprintf("%d => %f\n",i, yloc)  % Single line
+    if yloc < y
+        x = xloc;
+        y = yloc;
+        yloc
+    end
+end
+
+%[x, y] = run(ms, problem, 200)
+%problem = createOptimProblem('fmincon','x0',x,'objective',fun,'nonlcon', @(x)constraints(x,maps));
+%[x, y] = run(gs,problem)
+
+
+%[x, y] = simulannealbnd(fun_con, x, [], [], optimoptions(@simulannealbnd, 'InitialTemperature', 500))
 
 %constraints(x, maps)
     
@@ -93,32 +138,26 @@ hold on;
 scatter(state(:,1), state(:,2), 30, 'white', 'filled');
 hold off;
 
-save_results(x, seed, maps);
+%save_results(x, seed, maps);
+
+function x = informed_initial_guess()
+    x = zeros([9 1]);
+    x(1:3:7) = rand([3 1]) * 0.5;
+    x(2:3:8) = rand([3 1]) * 0.5;
+    x([5 8]) = x([5 8]) + 0.5;
+    x(3:3:9) = rand([3 1]);
+end
 
 function state = state_transform(x)
     state = zeros([6, 3]);
-    state(1:4,:) = mod(reshape(x, [4 3]), ones([4 3]));
-    state(5,:) = state(1,:);
-    state(6,:) = state(2,:);
-    for i = [5, 6]
+    state(1:3,:) = mod(reshape(x, [3 3]), ones([3 3]));
+    state(4,:) = state(1,:);
+    state(5,:) = state(2,:);
+    state(6,:) = state(3,:);
+    for i = 4:6
         state(i,1) = 1 - state(i,1);
         state(i,3) = - state(i,3);
     end
-end
-
-% Store the results in a json file, so that blender can present it again (for sanity check)
-function save_results(x, seed, maps)
-    state = state_transform(x);
-    [rr, nn] = get_position_normal_at(state, maps);
-    y = objective_fun(x, maps);
-    A = get_rcs_matrix(x, maps);
-    F = linsolve(A, vertcat(eye(3), zeros(3)));
-    result = struct('seed', seed, 'state', state, 'y', y, 'positions', rr, 'normals', nn, 'F', F);
-    encoded = jsonencode(result);
-    
-    fid = fopen('../models/outp.json','w');
-    fprintf(fid,'%s',encoded);
-    fclose(fid);
 end
 
 function A = get_rcs_matrix(x, maps)
@@ -133,7 +172,7 @@ end
 
 function y = objective_fun(state, maps)
     A = get_rcs_matrix(state, maps);
-    y = -double(norm([det(A), 0.1]));
+    y = -double(det(A)^2);
     %test_inps = vertcat(eye(3), zeros(3));
     %y = -(1/double(norm(linsolve(A, test_inps), 20)));
 end

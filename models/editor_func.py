@@ -19,7 +19,7 @@ def arr_to_buffer(buffer, arr, i):
 
 def main():
     #print(os.getcwd())
-    with open("/home/nick/Documents/School/Optimization/models/outp.json") as f:
+    with open("/home/nick/Documents/School/Optimization/outputs/outp.json") as f:
         struct = json.load(f)
         
     N = len(struct['normals'])
