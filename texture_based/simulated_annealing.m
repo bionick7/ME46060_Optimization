@@ -1,5 +1,6 @@
-function [x_min, y_min, step_info] = simulated_annealing(f, x0, T0, iterations)
+function [x_min, y_min, step_info] = simulated_annealing(f, x0, constraint, iterations)
     N = size(x0);
+    T0 = 100;
 
     PRINT_ITER = false;
 
@@ -18,8 +19,18 @@ function [x_min, y_min, step_info] = simulated_annealing(f, x0, T0, iterations)
         % Generate new point
         rand_dir = rand([N 1]);
         rand_dir = rand_dir / norm(rand_dir);
+        x_new = mod(x + rand_dir * T * 0.1, 1);
+        gen_iter_count = 0;
+        while constraint(x_new) > 0
+            rand_dir = rand([N 1]);
+            rand_dir = rand_dir / norm(rand_dir);
+            x_new = mod(x + rand_dir * T * 0.1, 1);
+            gen_iter_count = gen_iter_count + 1;
+            if gen_iter_count > 100
+                x_new = x_min;
+            end
+        end
 
-        x_new = x + rand_dir * T * 0.01;
         y_new = f(x_new);
 
         if y_new < y_min
@@ -27,8 +38,8 @@ function [x_min, y_min, step_info] = simulated_annealing(f, x0, T0, iterations)
             x_min = x_new;
         end
         
-        accept_proabability = exp((y - y_new) / T * 100);
-        if rand([1 1]) < accept_proabability
+        accept_proabability = exp((y - y_new) / T * 400);
+        if rand([1 1]) < accept_proabability && y_new < 0
             if abs(y_new - y) > 0.01  % Only count significant change
                 stagnation_counter = 0;
             else
@@ -53,6 +64,8 @@ function [x_min, y_min, step_info] = simulated_annealing(f, x0, T0, iterations)
         if stagnation_counter > 30 && (T < 1 || y > y_min)
             %T0 = T0 * 0.95;
             T = T0/2;
+        elseif stagnation_counter > 100
+            return
         end
     end
 end

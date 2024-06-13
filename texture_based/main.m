@@ -72,38 +72,40 @@ fun_con = @(x)objective_fun(x,maps) + 100 * max(constraints(x, maps), 0)^2;
 y = 0;
 x = zeros([N_x 1]);
 
-%[xloc, yloc] = simulannealbnd(fun_con, x0_loc, [], [], optimoptions(@simulannealbnd, 'Display', 'iter'))
-[xloc, yloc, step_info] = simulated_annealing(fun_con, x, 100, 1000);
+%[xloc, yloc] = simulannealbnd(fun_con, x, [], [], optimoptions(@simulannealbnd, 'Display', 'iter'))
+%[xloc, yloc, step_info] = simulated_annealing(fun_con, x, @(x)constraints(x, maps), 10000);
 
-if PLOT_ANNEAHLING_OUTP
-    figure(1)
-    plot(1:length(step_info), step_info(1,:));
-    hold on;
-    plot(1:length(step_info), step_info(2,:)/100);
-    plot(1:length(step_info), step_info(3,:)/100);
-    ylim([-1 1])
-    hold off;
-end
-return
+[x, y] = powells_conjugate_directions(fun_con, x0)
 
-for i = 1:10
+%if PLOT_ANNEAHLING_OUTP
+%    figure(1)
+%    plot(1:length(step_info), step_info(1,:));
+%    hold on;
+%    plot(1:length(step_info), step_info(2,:)/100);
+%    plot(1:length(step_info), step_info(3,:)/100);
+%    ylim([-1 1])
+%    hold off;
+%end
+
+for i = 1:100
     x0_loc = informed_initial_guess();
     while constraints(x0_loc, maps) > 0
         x0_loc = informed_initial_guess();
     end
     %x0_loc = mod(x0_loc, 1);
-    %[xloc, yloc] = fmincon(fun, x0_loc, [], [], [], [], [], [], @(x)constraints(x, maps), ...
-    %               optimoptions(@fmincon, 'Display', 'off'));
     %[xloc, yloc] = simulannealbnd(fun_con, x0_loc, [], [], optimoptions(@simulannealbnd, 'Display', 'off'));
-    [xloc, yloc] = simulated_annealing(fun_con, x0_loc, 100, 10000);
-    [xloc, yloc] = fminunc(fun_con, xloc, optimoptions(@fminunc, 'Display', 'off'));
+    %[xloc, yloc] = simulated_annealing(fun_con, x0_loc, @(x)constraints(x, maps), 10000);
+    %[xloc, yloc] = fminunc(fun_con, xloc, optimoptions(@fminunc, 'Display', 'off'));
+    %[xloc, yloc] = fminsearch(fun_con, x0_loc, optimset('Display', 'off'));
+    [xloc, yloc] = powells_conjugate_directions(fun_con, x0_loc);
     fprintf("%d => %f\n",i, yloc)  % Single line
     if yloc < y
-        x = xloc;
-        y = yloc;
-        yloc
+        x = xloc
+        y = yloc
     end
 end
+[x_precise, y_precise] = fmincon(fun, x, [], [], [], [], [], [], @(x)constraints(x, maps), ...
+                                 optimoptions(@fmincon, 'Display', 'off'))
 
 %[x, y] = run(ms, problem, 200)
 %problem = createOptimProblem('fmincon','x0',x,'objective',fun,'nonlcon', @(x)constraints(x,maps));
@@ -127,7 +129,9 @@ end
 %    [sphere_factor, y]
 %end
 
-state = state_transform(x);
+state = state_transform(x_precise);
+A = get_rcs_matrix(x_precise, maps);
+det(A)
 
 position_map_norm = position_map ./ repmat(vecnorm(position_map, 2, 3), [1 1 3]); % Normalization
 
@@ -172,7 +176,7 @@ end
 
 function y = objective_fun(state, maps)
     A = get_rcs_matrix(state, maps);
-    y = -double(det(A)^2);
+    y = -double(norm([det(A), 0.1]));
     %test_inps = vertcat(eye(3), zeros(3));
     %y = -(1/double(norm(linsolve(A, test_inps), 20)));
 end
