@@ -1,36 +1,24 @@
-clc;
-%clear all;
-%close all;
 echo off;
 
-PLOT_ANNEAHLING_OUTP = true;
+PLOT_ANNEAHLING_OUTP = false;
+PCD_OPTIMIZATION = false;
 SHOW_PLOT = true;
-SHOW_GRID = false;
-SHOW_PROFILE = false;
+SHOW_GRID = true;
+SHOW_PROFILE = true;
 
+% Model definition
 x_half = [0.50 0.48 0.44 0.38 0.38 0.38 0.32 0.32 0.44 0.47 0.50];
-y_half = [0.00 0.00 0.11 0.34 0.52 0.70 0.87 0.94 0.94 1.00 1.00];
+y_half = [0.00 0.00 0.11 0.35 0.52 0.70 0.87 0.94 0.94 1.00 1.00];
 xs = [x_half(1:10) flip(1.0 - x_half)];
 ys = [y_half(1:10) flip(y_half)];
 t = (0:1:length(xs)-1) / (length(xs)-1);
+model = struct('Xs', xs, 'Ys', ys, 'Ts', t);
 
 tt = 0:0.001:1;
-
-model = struct('Xs', xs, 'Ys', ys, 'Ts', t);
-x0 = rand([1 2]);
-%[x, y] = ga(@(x)objective_func(x, model), 2)
-
-%problem = createOptimProblem('fmincon','objective', @(x)objective_func(x, model),...
-    %                             'x0',x0,'lb',[0 0],'ub', [1 1]);
-    %          %'nonlcon',apertureConstraint_x,'options',opts);
-    %gs = GlobalSearch;
-    %[x,y] = run(gs, problem)
-    
-%[x, y] = simulannealbnd(@(x)objective_func(x, model), x0, [], [], optimset('Display', 'iter'))
-[x, y, step_info] = simulated_annealing(@(x)objective_func(x, model), x0);
-[x, y] = fminunc(@(x)objective_func(x, model), x)
+x0 = rand([2 1]);
 
 if PLOT_ANNEAHLING_OUTP
+    [x, y, step_info] = simulated_annealing(@(x)objective_func(x, model), x0, @(x) -1, 1000);
     figure(1)
     plot(1:length(step_info), step_info(1,:));
     hold on;
@@ -39,81 +27,117 @@ if PLOT_ANNEAHLING_OUTP
     hold off;
 end
 
-% Works: 
-% genetic algorythms
-% simulated aneahling
-% GlobalSearch
+if PCD_OPTIMIZATION
+    x = x0;
+    y = objective_func(x, model);
+    for i = 1:10
+        x0 = rand([2 1]);
+        [xloc, yloc] = powells_conjugate_directions(@(x)objective_func(x, model), x0);
+        if yloc < y
+            x = xloc;
+            y = yloc;
+        end
+        fprintf("y = %f\n", yloc);
+    end
+else
+    x = [0.5543 -0.0436]';
+    y = objective_func(x, model);
+end
 
-% Does not work:
-% particleswarm
-
-x_mod = mod([1-x(1) x]', ones([3 1]));
+x_mod = mod([x' 1-x(1)]', ones([3 1]));
 A = get_rcs_matrix(x_mod, model);
 
-xx = interp1(t, xs, tt);
-yy = interp1(t, ys, tt);
+xx = pchip(t, xs, tt);
+yy = pchip(t, ys, tt);
 
 if SHOW_PLOT
     figure(2);
     hold on;
     plot(xs,ys,'rx');
     plot(xx,yy,'r-');
-    plot(interp1(t, xs, x_mod), interp1(t, ys, x_mod),'bo');
+
+    % Retrieve state positions/directions
+    px = pchip(t, xs, x_mod);
+    py = pchip(t, ys, x_mod);
+    A = get_rcs_matrix(x_mod, model);
+    dx = A(1,:);
+    dy = A(2,:);
+    plot(px, py,'bo');  % Positions
+    for i=1:3
+        plot([px(i)+dx(i)*0.1, px(i)-dx(i)*0.1], ...
+             [py(i)+dy(i)*0.1, py(i)-dy(i)*0.1], 'b-')
+    end
+
+    xlabel("x");
+    ylabel("y");
+    ylim([-0.1 1.1]);
     axis equal;
     hold off;
 end
 
-Y_RANGE = [-1 1];
+Y_RANGE = [-1.1 0.1];
 
 if SHOW_GRID
-    grid = zeros(2);
-    N = 100;
-    for x_p = 1:N
-        for y_p = 1:N
-            grid(x_p, y_p) = objective_func([x_p y_p] / N, model);
+    N = 300;
+    grid = zeros(N);
+    for x_p = 1:N/2
+        for y_p = 1:N/2
+            f = objective_func([x_p y_p]' / N, model);
+            % Symmetry
+            grid(x_p, y_p) = f;
+            grid(N-x_p, y_p) = f;
+            grid(x_p, N-y_p) = f;
+            grid(N-x_p, N-y_p) = f;
         end
     end
     figure(3);
     %imshow(grid, 'XData', [0 1], 'YData', [0 1], 'DisplayRange', Y_RANGE);
-    %hold on; 
     [mesh_xx, mesh_yy] = meshgrid((1:N)/N);
-    contour(mesh_xx, mesh_yy, grid);
-    %scatter(mod(x(1), 1), mod(x(2), 1), 'bo');
+    surf(mesh_xx, mesh_yy, grid, "EdgeColor", "none");
+    axis equal;
+    xlabel("x_2");
+    ylabel("x_1");
+    %hold on;
+    %scatter(mod(x(2), 1), mod(x(1), 1), 'rx');
     %hold off;
 end
-
-%figure();
-%fcontour(@(x,y)domain([x, y], model), [0 1]);
-%fcontour(@(x,y)x.^2+y.^2, [0 1]);
 
 if SHOW_PROFILE
     xx = (1:1000) / 1000;
     ff = zeros(1000);
     for i = 1:1000
         x_p = xx(i);
-        ff(i) = objective_func([x_p 0.5], model);
+        ff(i) = objective_func([x_p 0.5]', model);
     end
 
     figure(4);
     plot(xx, ff);
     ylim(Y_RANGE);
+    xlabel("x_1");
+    ylabel("f(x_1, 0.5)");
 end
 
 
 function y = objective_func(state, model)
-    state = mod([1-state(1) state]', ones([3 1]));
+    state = mod([state' 1-state(1)]', ones([3 1]));
     A = get_rcs_matrix(state, model);
-    %y = double(norm(reshape(F, [], 1), 20));
-    %y = 1/y;
+    %if abs(det(A)) < 1e-5
+    %    y = 1e5;
+    %else
+    %    F = linsolve(A, [0 0 1]');
+    %    y = double(norm(reshape(F, [], 1), 20));
+    %end
+    %y = -norm([1/y 0.1]);
     %y = dot(F, F.*[1 1 -1]');
-    y = -double(det(A)^2);
+    y = -norm([det(A) 0.1]);
+    %y = -abs(det(A));
 end
 
 function A = get_rcs_matrix(state, model)
-    px = interp1(model.Ts, model.Xs, state);
-    py = interp1(model.Ts, model.Ys, state);
-    dx = (interp1(model.Ts, model.Xs, state+0.001) - px) / 0.001;
-    dy = (interp1(model.Ts, model.Ys, state+0.001) - py) / 0.001;
+    px = pchip(model.Ts, model.Xs, state);
+    py = pchip(model.Ts, model.Ys, state);
+    dx = (pchip(model.Ts, model.Xs, state+0.001) - px) / 0.001;
+    dy = (pchip(model.Ts, model.Ys, state+0.001) - py) / 0.001;
     l = sqrt(dx.*dx+dy.*dy);
     dx = dx ./ l;
     dy = dy ./ l;

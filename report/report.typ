@@ -1,27 +1,37 @@
-// TODO: title
+#show figure.where(kind: table): set figure.caption(position: top)
 
 #let vv(x) = $arrow(#x)$
 #set math.vec(delim: "[")
 #set math.mat(delim: "[")
+#set heading(numbering: "1.1")
 
+// TODO: title
+
+#pagebreak()
+#set page(numbering: "1/1", number-align: right, header: grid(columns: (100%-3em, auto), [Nick Felten], [5223679]))
+#counter(page).update(1)
 #set text(size: 11pt)
 
-#outline()
+#outline(
+  title: [Table of contents],
+  indent: auto
+)
 
 = Introduction
-In order to control attitude and translation, spacecraft can make use of attitude control thrusters. Attitude control thrusters are small thrusters that can expell gas in a certain direction to impart a certian force at a specific point of the vehicle into a specific direction. Ideally, a combination of a sufficient ammount of these thrusters on specific points of the craft can provide any combination of torque and force within a certain magnitude. 
+In order to control attitude and translation, spacecraft can make use of attitude control thrusters. Attitude control thrusters are small thrusters that can expel gas in a certain direction to impart a certain force at a specific point of the vehicle into a specific direction. Ideally, a combination of a sufficient amount of these thrusters on specific points of the craft can provide any combination of torque and force within a certain magnitude. 
 
-The purpose of this report is to find the optimal arrangement of thrusters on a certain spacecraft. The spacecraft in question is shown in @fig:spacecraft-render. This is a spacecraft design I came up causually some years ago, chosen as it provides a shape which is not to complex, but where the optimal solution is not immediatly obvious. A thruster as shown in @fig:thruster-design is used. The reason for this design is the bi-directional thrust, which allows the thrust to be negative in the mathematical model, dramatically simplifying the model.
-The challenges of the optimiyation are mostly the restrictions of the thruster placement.
+The purpose of this report is to find the optimal arrangement of thrusters on a certain spacecraft. The spacecraft in question is shown in @fig:spacecraft-render. This is a spacecraft design I came up casually some years ago, chosen as it provides a shape which is not to complex, but where the optimal solution is not immediately obvious. A thruster as shown in @fig:thruster-design is used. The reason for this design is the bi-directional thrust, which allows the thrust to be negative in the mathematical model, dramatically simplifying the model.
+The challenges of the optimization are mostly the restrictions of the thruster placement.
 The thrusters need to lie on the surface and the thrust direction needs to be parallel to the surface.
 
-#figure(image("thruster.png", width: 40%), caption: [The concept of the thruster design])<fig:thruster-design>
+A more rigorous formulation of the optimization problem and the model is given in @ch:problem-formulation. Some of the mathematical properties of the objective function, like bounds/continuity and noise are discussed in @ch:initial-problem-investigation. The optimization of a simplified 2D problem is discussed @ch:simp-problem and the actual optimization is discussed in @ch:true-problem. In @ch:results, the results of the optimization are commented on and their sensitivity is analyzed. The final conclusion is presented in @ch:conclusion.
+
+#figure(image("thruster.png", width: 40%), caption: [The concept of the thruster design, thrust can be applied in the positive or negative x-direction])<fig:thruster-design>
 #figure(image("spacecraft_render.png", width: 75%), caption: [The spacecraft in question. Only the surface where thruster placement is allowable is visible])<fig:spacecraft-render>
 
 // TODO: descriptive of optimization + Introduce spacecraft
 
-
-= Problem formulation
+= Problem formulation <ch:problem-formulation>
 The moment ($M_i$) and force ($F_i$) a single thruster imparts on the spacecraft can be written as:
 $
   vv(M)_i &= T_i (vv(r)_i times vv(d)_i) \
@@ -31,8 +41,8 @@ where $vv(r)_i$ is the position of the thruster, $vv(d)_i$ is the direction and 
 The final forces and moments are the sum of the forces and moments from the individual thrusters. 
 $
   vec(vv(M), vv(F)) &= mat(
-    vv(r)_1 times vv(d)_1, ..., vv(r)_n times vv(d)_n;
-    vv(d)_1, ..., vv(d)_n
+    vv(r)_1 times vv(d)_1, dots.c, vv(r)_n times vv(d)_n;
+    vv(d)_1, dots.c, vv(d)_n
   ) vec(T_1, dots.v, T_n) \
   &= A vv(T)
 $
@@ -42,6 +52,11 @@ $
 $
 The goal of this project is to find a combination of thrusters on a specific spacecraft that most 'efficiently' provide the thrusts for certain input thrusts/torques, i.e. where the average magnitude of $vv(T)$ is minimal.
 
+== Simplifications
+Several assumptions are made in the problem statement that are be stated below.
+- The geometry of the spacecraft does not influence the thrust of the thrusters. Thruster are considered to always give constant thrust no matter where they are placed
+- Thrusters can be placed anywhere on the surface. Some of the surface has been omitted from the model to indicate places where no placement is possible. The remaining surface is all considered an equally valid destination. In reality, the placement of some thrusters might restrict the valid placement of others.
+- All forces and torques are weighed equally. For the purpose of this optimization, 1 unit of force has the same utility as one unit of torque. Since all points in this problem lie within $[-1, 1]^3$, force and torque are scaled similarly. The importance of different forces/moments can easily be weighted by scaling the rows of the matrix $A$ to account for e.g. the mass moment of inertia.
 
 == Optimization problem
 // (also present mathematical problem statement)
@@ -55,8 +70,8 @@ Instead, I settled on minimizing of $abs(det(A^(-1)))$, since the determinant is
 $
   f(x) = -sqrt(det(A)^2 + 0.1^2) \
   A = mat(
-    vv(r)_1 times vv(d)_1, ..., vv(r)_6 times vv(d)_6;
-    vv(d)_1, ..., vv(d)_6
+    vv(r)_1 times vv(d)_1, dots.c, vv(r)_6 times vv(d)_6;
+    vv(d)_1, dots.c, vv(d)_6
   )
 $
 
@@ -73,7 +88,7 @@ $
   g(vv(u), vv(v), vv(a)) = limits("Max")_i ("sdf"(u_i, v_i)) <= 0
 $
 
-$vv(u)$, $vv(v)$ and $vv(a)$ can take any value, but repeat outside of the (0, 1) domain. It was found that letting the values grow to large numbers with this behaviour makes it significantly more likely to find the global minimum than otherwise. I have no explenation for this behaviour.
+$vv(u)$, $vv(v)$ and $vv(a)$ can take any value, but repeat outside of the (0, 1) domain.
 
 #let grid-width = 90%
 #grid(columns: 2, row-gutter: 1em,
@@ -92,14 +107,14 @@ $
   a_(4,5,6) &= -a_(1,2,3) \
 $
 
-= Initial problem investigation
-It will be clear from the simplified problem, the function is neither monotonous, nor convex. It is also easy to see from @fig:position-map that the domain is non-convex as well.
-== Boundedness
+= Initial problem investigation <ch:initial-problem-investigation>
+There is no reason to assume that the objective function is either monotonous nor complex and it will be clear in the simplified problem that it isn't. It is also easy to see from @fig:position-map that the domain is non-convex as well.
+== Bounds
 The optimization function is 
 $
-  f(vv(x)) = -det(A)^2
+  f(vv(x)) = -sqrt(det(A)^2 + 0.1^2)
 $
-Whose upper bound occurs as $det(A) = 0$. So $f(x) <= 0.0$. To find the lower bound, the bounds of $abs(det(A))$ need to be known. Hadarmads inequality states that $abs(det(A)) <= product_(i=1)^n norm(vv(w)_i)$, where $vv(w)_i$ are the column vectors of $A$ @hadamard. In this case, 
+Whose upper bound occurs as $det(A) = 0$. So $f(x) <= -0.1$. To find the lower bound, the bounds of $abs(det(A))$ need to be known. Hadarmads inequality states that $abs(det(A)) <= product_(i=1)^n norm(vv(w)_i)$, where $vv(w)_i$ are the column vectors of $A$ @hadamard. In this case, 
 $
   vv(w)_i &= vec(vv(r)_i times vv(d)_i vv(d)_i) \ 
   <=> norm(vv(w)_i) &= sqrt(norm(vv(r)_i times vv(d)_i)^2 + norm(vv(d)_i)^2) \
@@ -107,35 +122,239 @@ $
 $
 The maximum value of $norm(vv(r_i))$ accross the whole surface was found to be around 1.087. Therefore:
 $
-  det(A)^2 <= (1.087^2 + 1)^6 tilde.equiv 107.799 \ 
-  -107.799 <= f(vv(x)) <= 0.0
+  det(A)^2 <= (1.087^2 + 1)^3 tilde.equiv 10.383 \ 
+  -10.383 <= f(vv(x)) <= -0.1
 $
-Giving the exact bounds of the problem.
+This gives a lower bound for the optimum.
 
-== Smoothness
-The determinant varies smoothly with respect to the components of the matrix, so $f(vv(x))$ is smooth with respect to the positions and directions of the thrusters $vv(r)_i$ and $vv(d)_i$. The direction also varies smoothly with the angle $a_i$. Thus the question of smoothness relies on the smoothness of the position/normal maps. The position map is continuous because of the way it is generated: adjacent, valid points on the 2d map are also adjacent in 3d space. The smoothness of the position map is slightly non-smooth 
+== Smoothness & Continuity
+The determinant varies smoothly with respect to the components of the matrix, so $f(vv(x))$ is smooth with respect to the positions and directions of the thrusters $vv(r)_i$ and $vv(d)_i$. The direction also varies smoothly with the angle $a_i$. Thus the question of smoothness and continuity relies on the smoothness of the position/normal maps. The position map is continuous because of the way it is generated: adjacent, valid points on the 2d map are also adjacent in 3d space. Since the surface normal is related to the gradient of the surface, the normal map represents the derivative of the position map. Therefore the normal map is discontinuities if and only if the position map is non-smooth. This corresponds with sharp angles in the geometry of the mesh. Even though the shape is mostly smoot, there are some sharp corners in the mesh and some very tight bevels (only a few pixels wide), which are represented as very steep gradients in the normal map. Therefore there are some discontinuities or nead discontinuities in the objective functions.
 
-// E.g. boundedness, monotonicity, convexity
-// Numerical noise
-// Sensitivity analysis
+== Noise and precision
+Storing data in images comes with two fundamental restriction in resolution. Both the resolution of the data itself, as well as the spatial resolution are limited by the image format. The position and normal maps are 2048$times$2048 pixel maps with a color depth of 16 bits per channel. The image is sampled by linearly interpolating between the closest pixels and can be considered, on a small scale, to consist of facettes of size $5 dot 10^(-4)$. This can influence finite differnce calculations, especiall around sharp corners. The 16 bit color depth makes the normals acurate to the order $~ 1.5 dot 10^(-5)$ and positions accurate to the order $~ 3 dot 10^(-5)$. This is sufficient for the problem, and much less dominant than the image resolution. 
 
-= Initial optimization on simplified problem (e.g. 2 variables)
+I could not get an SDF image in 16 bit per channel color depth. Therefore it is also limited to 1024$times$1024 resolution as an SDF that decreases by less than 1 unit per pixel can lead to problems. This means that he constraint has significantly lower resultion than the optimization function. Because of the type of optimizer chosen and the way the constraint is implemented, however, the noise of the constraint function is much less relevant.
+
+// TODO: Smoothness drives optimization conditions
+
+= Initial optimization on simplified problem <ch:simp-problem>
+== Simplified probelm model
+Before solving the full problem, a simplified version of the problem is investigated in order to gage the complexity and nature of the optimization function. An easy way to do this is to look at the 2-dimensional equivalent of the original problem, which represents 3d geometry.
+
+In the 2-dimensional case, there are 2 degrees of translational motion and a single degree of rotational motion. Therefore only 3 thrusters are necaissary. Instead of defining the position of the thrusters as 2d point that maps to a 3d surface, it can be defined as a single value that maps to a 2d position via evaluating a path representing the surface. The constraint that the thrust direction needs to be orthogonal to the surface allows to get the direction directly from the position, as the normalized derivative of the the path. This reduces the number of variables in the 2D case to only 3. Similarly to the actual problem, the use of symmetry allows to reduce the problem to 2 variables by assuming that $x_3 = 1 - x_1$.
+
+The path $vv(phi.alt)(x)$is represented by interpolating between 20 points with piecewise cubic hermite splines. It can be seen in @fig:path-2d This way, some of the flat surfaces and sharp corners of the shape stay conserved while still offering smooth interpolation in some cases. The path starts at (0.5, 0), reaches (0.5, 1) at $x = 0.5$ and returns to (0.5, 0) at $x = 1$. It is symmetrical along $x = 0.5$.
+
+$
+  vv(r)_(i, "2D") = vv(phi.alt)(x_i) \ 
+  vv(d)_(i, "2D") = (dif vv(phi.alt)(x_i)) / (dif x_i) dot norm((dif vv(phi.alt)(x_i)) / (dif x_i))^(-1)
+$
+
+$
+  A_"2D" = mat(
+    mat(delim: "|", vv(r)_(1, "2D"), vv(d)_(1, "2D")), mat(delim: "|", vv(r)_(2, "2D"), vv(d)_(2, "2D")), mat(delim: "|", vv(r)_(3, "2D"), vv(d)_(3, "2D"));
+    vv(d)_(1, "2D"), vv(d)_(2, "2D"), vv(d)_(3, "2D")
+  )
+$
+
+== Algorithm selection
+The reduction to two variables allows to plot the whole fuction domain at once. This can be seen in @fig:plot-f-2d. Furthermore, a cross-section along the $x_1 = 0.5$ is shown in @fig:cross-section-2d. These confirm two of the difficulties that where suspected earlier: The objective function has many local optima and it contains a lot of plateaux and discontinuities.
+
+#figure(image("contour_plot_2d.png"), caption: [Plot of $f(vv(x))$ for the simplified problem over its entire domain]) <fig:plot-f-2d>
+
+#figure(image("func_crosssection_2d.png"), caption: [Plot of a cross-section of $f(vv(x))$ at $x_1$ = 0.5 for the simplified problem]) <fig:cross-section-2d>
+
+This leads to the following criteria to choose an optimization algorythm:
+
++ The optimizer must be able to find the global optimum eventually.
++ The optimizer must not rely on the first/second derivative.
+
+The last condition eliminates almost any method that are not direct search methods. Direct search methods include stocastic methods like simulated annealing or genetic algorithms, as well as methods like cyclic coordinate search and the nelder-mead simplex method. /*TODO: Sources mayhaps*/ My initial thought was to use a stochastic method for their ability to escape local minima. I chose to use simulated annealing for its simplicity to implement. Indeed, for this relatively simple problem, simulated annealing performs relatively well and finds the global optimum in most runs. There are multiple global optima because of the symmetry in the objective function, but a solution is shown in @fig:path-2d. 
+
+The thrusters are as far as possible from each other to maximize the angular momentum they can provide and are 'balancing' on the corners to be able to provide thrust in both x- and y- directions. Although this makes the solution very sensitive to the inputs, it doesn't make for an infeasible design.
+
+#figure(image("solution_2d.png"), caption: [Plot of the path representing the 2d shape in red. Position of the thrusters in the solution plotted in blue.]) <fig:path-2d>
+
+// - Analytical (expected) solution
+// - Optimizer must be 0th order
+// - Apply simulated annealing
+// - Arrives at solution (sometimes)
+
 // Motivation of optimization approach, choices
 // Investigation of obtained optimum
 // Observations, interpretation of results, conclusions
-= Optimization of actual problem
+
+= Optimization of the actual problem <ch:true-problem>
+The actual 3D problem has 9 design variables, so it is not possible to construct a plot like @fig:plot-f-2d, but similar properties can be assumed, since flat surfaces and tight corners are also present in the 3D case. In this more complicated case, simulated annealing turned out to be very unreliable and often converged to results wich were obviously bad.
+
+This might be because it is easy for simulated annealing to get trapped within shallow plateaux wich are local optima at low temperatures. This can be mitigated by 'reheating' the solution after it is stuck for to long, but the optimizer would still be very inefficient in finding the right solution. Since there are a lot of variations of simulated annealing and a lot of parameters that can be tweaked, it is possible that there is a more efficient version of simulated annealing, but there is also a simpler way.
+
+If there is an efficient algorythm that is robust to both unsmooth functions and plateaux, it can be run on many random points on the domain in hopes that it finds a good global optimum in the process. For this reason, Powells conjugate directions (PCD) method was used. Since PCD is based on linesearches that use golden-section search or quadratic interpolation internally, it is quite robust to most plateaux. /* TODO: Ehhh, is it? */
+
+A major benefit of PCD in this case is that the search radius can be defined exactly with the bounds of the linesearches. The optimization performs better and converges faster on a smaller search radius, centered around 0. By limiting the search radius of the alghorythm, the optimizer needs to deal with multiple optima less often and is more likely to find the closest local optimum quickly. It is also less likely to cycle between different optima without converging, as less of the function is visible at a time. This comes with the disadvantage that less of the solution space is explored at a time, so more searches are needed. A good compromise is to set the search radius to 0.25.
+
+Since PCD, like most direct search methods, does not account explicitly for constraints, the objective function needs to be transformed to give a heavy penelty outside the feasible domain, such that the optimal solution cannot lie outside the domain. The follow transformation is used.
+$
+  tilde(f) = f + p(max(0, g))^2 #v(2em) p in RR^+
+$
+where $p$ dermines the magnitude of the penalty. $p$ can be set quite high right away, since the optimzer needs to deal with very steep gradients (almost discontinuities) anyway, so it is set to 1000.
+
+To generate an initial value to use for the PCD, a random vector is generated with a uniform distribution in the domain $[0, 1]^9$ and re-generated until it conforms to the inequality constraint. After some initial tests, it was found that all the most promising results occur with 2 sets of thruster at $v_i >= 0.5$ (the upper half of the UV grid, corresponding to the rear of the spacecraft) and one set at $v_i <= 0.5$. This makes physical sense, as the thruster would benefit to be evenly distributed over the spacecraft to gain the maximum moment arm, with the rear of the spacecraft beeing wider and better for roll control. Ultimately, the domain for the initial value generation was constrained to accomodate these preferences and make the total search space smaller. Along with the restrictions in $v_i_0$, $u_i_0 < 0.5$ can be enforced, as the $f(x)$ is symmetric with respect to $u_i$. 
+/*$
+  v_(1,2)_0 in [0.5, 1]\
+  v_(3)_0 in [0, 0.5]\
+  vv(u)_0 in [0, 0.5]^3\
+$*/
+This reduces the hypervolume of the search space by a factor of $2^6 = 64$.
+
+The interval of convergence for the PCD is set to a rather large number, 0.01. The idea is to have an alghorythm that converges quickly, such that it can be run many times to find a good candidate for the optimal solution, then find the precise optimum with that candidate as a starting point in a second step.
+
+// - Apply simulated annealing
+// - Problems
+// - Apply Powells conj. directions on 100 randomly sampled points
+// - Constrain domain
+
 // (Same points as above)
 // (possibly including different variations of model, problem formulation, optimization approach)
 
-= Interpretation of results
+= Interpretation of results <ch:results>
+After running the program multiple times with different rng states, most come up with similar solutions. This is a good sign, as it is likely that the found solutions are close to the global optimum. The result that is shown here is the best on found with a utility function of $f(x) = -2.8347$. The values in terms of map coordinates ($u$, $v$) and $a$ are presented in @fig:solution-uva, while the solutions in terms of position ($vv(r)$) and direction ($vv(d)$) are presented in @fig:solution-rd. A 3d visualization of the solution is also visible in @fig:solution-3d.
+// Solution makes sense physically
+
+#figure(table(columns: 4,
+  $i$,      $1$,      $2$,      $3$,
+  $u$, $0.2355$, $0.4431$, $0.2622$,
+  $v$, $0.1255$, $0.9431$, $0.1081$,
+  $a$, $0.7742$, $0.0647$, $0.1260$,
+), caption: [Solution in terms of map coordinates of first 3 thrusters]) <fig:solution-uva>
+
+#figure(table(columns: 7,
+    $i$,       $1$,       $2$,       $3$,       $4$,       $5$,       $6$, 
+  $r_x$, $-0.3320$, $-0.0473$, $-0.3587$, $ 0.3327$, $ 0.0473$, $ 0.3584$,
+  $r_y$, $ 0.8432$, $-0.9758$, $ 0.8344$, $ 0.8431$, $-0.9763$, $ 0.8342$,
+  $r_z$, $ 0.0342$, $ 0.0036$, $-0.0050$, $ 0.0336$, $ 0.0033$, $-0.0060$,
+  $d_x$, $ 0.6213$, $-0.6935$, $ 0.2543$, $ 0.6184$, $-0.5928$, $ 0.3233$,
+  $d_y$, $ 0.6593$, $ 0.0775$, $ 0.3084$, $-0.6590$, $-0.0769$, $-0.3085$,
+  $d_z$, $ 0.4234$, $-0.7032$, $-0.9165$, $-0.4281$, $ 0.7854$, $ 0.8945$,
+), caption: [Solution in terms of 3d positions and directions]) <fig:solution-rd>
+
+//#figure(image("solution_map.png"), caption: [Solution in map coordinates, overlaid over the (positive) normal map])
+#figure(image("solution_3d.png"), caption: [Solution rendered in 3d]) <fig:solution-3d>
+
+It can be seen from @fig:solution-3d that the thrusters from the solution form 3 pairs, one at each extremity of the spacecraft. Each pair forms a perpendicular cross. This solution maximizes both the distance of the thrusters from each other while making sure there is minimum alignment between any two thruster, so it makes sense physically that this is the best, or close to the best, solution that can be archieved.
+
+
 == Sensitivity analysis
-= Conclusions and recommendations
+// 2 kinds of sensitivity: w.r.t. 3d positions and w.r.t variables
+// Since there are no active constraints, response of f to x is either 0 or discontinuous.
+// 2nd point is discontinuous in u and v
+// Takes advantage of corners, so theoretically very sensitive
+// Not an issue in practice.
+
+For this problem, a sensitivity analysis comes in two forms. One is the sensitivity with respect to the design parameters that have been optimized, which is what is typically done. These parameters, however have been chosen to reduce the dimensionality of the problem and do not correspond to any physical dimensions. Therefore, the sensitivity with respect to the position and direction is also calculated.
+
+The single constraint was not an active constraint in the solution, so the only response that is relevant is the response of the objective function itself. Since the relevant point is an optimum that does not lie on any constraint, the derivatives at that point with any value are either zero or disontinuous. Discontinuities can only come from the position/normal maps themselves. After looking at the discrete gradient of the normal map, it is found that points 2 and 4 (the pair in the fron of the spacecraft) lie on a crese, so they have discontinuous derivatives and very large sensitivity. The other points lie on a smoother surface, so the derivative with respect to them has to be zero. 
+The thruster pair is, in a way, exploiting the interpolation between pixels in the normal map to find find a very narrow solution to find the right angle for the thrusters.
+This makes the solution very sensitive with respect to the placement of thruster 2/4 on the 2d map, but not necaissarly sensitive to the actual positioning of the thruster.
+
+/*#figure(table(columns: 4,
+  $i$, $1$, $2$, $3$,
+  $u$, $0$, $infinity$, $0$,
+  $v$, $0$, $infinity$, $0$,
+  $a$, $0$, $0$, $0$,
+), caption: [Solution in terms of map coordinates of first 3 thrusters]) <fig:sensitivities-uva>*/
+
+The sensitivity with respect to the positions and directions of the thrustes has a more direct physical meaning. It represents how much the objective function changes with manufacturing defects, design adjustments and physical deformation (due to temperature or stress).
+
+The derivative with respect to each $vv(r)_i$ and $vv(d)_i$ can be calculated analytically. 
+
+$
+  (dif f) / (dif mat(vv(r), vv(d))^T) = (dif f) / (dif det(A)) 
+  (dif det(A)) / (dif A)
+  (dif A) / (dif mat(vv(r), vv(d))^T)
+$
+
+$
+  (dif f) / (dif det(A)) = det(A) / f approx -1 \
+  (dif det(A)) / (dif A) = "adj"(A) = det(A) A^(-1)
+$
+
+To get $(dif A) / (dif mat(vv(r), vv(d))^T)$, both matrices can be written in vector form, such that the computation of $A$ can be expressed in matrix form.
+$
+  dif vec(A_11, A_21, dots.v, A_56, A_66) = mat(
+    Omega_r_1, Omega_d_1, "", "", "";
+    "", I, "", "", "";
+    "", "", dots.down, "", "";
+    "", "", "", Omega_r_6, Omega_d_6; 
+    "", "", "", "", I; 
+  ) dif vec(vv(r)_1, vv(d)_1, dots.v, vv(r)_6, vv(d)_6)
+$
+where
+$
+  vv(r) times vv(d) = Omega_r_1 vv(r)_1 = Omega_d_1 vv(d)_1
+$
+
+Finally, it needs to be considered that the direction vectors $vv(d)_i$ are always normalized. Therefore a change in one dimension of $vv(d)$ will have indirect changes, as the other components adjust.
+
+Since, for any pair of vector components
+$
+  &d_i^2 + d_j^2 + ... = 1 \
+  <=>& (diff d_i) / (diff d_j) = - d_j / d_i
+$
+The total derivative can be calculated as:
+$
+  (dif f) / (dif d_i) &= (diff f) / (diff d_i) + (diff f) / (diff d_j) (diff d_j) / (diff d_i) + (diff f) / (diff d_k) (diff d_k) / (diff d_i) \
+  &= (diff f) / (diff d_i) - (diff f) / (diff d_j) d_i / d_j - (diff f) / (diff d_k) d_i / d_k\
+  (dif f) / (dif vv(d)) &= 2 I - vv(d) (1/vv(d))^T (diff f) / (diff vv(d)) #h(2em) 1/vv(d) " refers here to the \n element-wise inversion"
+$
+
+The final sensitivities are presented in @tab:sensitivity-rd. Since both position and direction have a similar scaling (from -1 ... 1), it makes sense to present the sensitivity in linear derivatives, instead of logarithmic ones.
+The highest sensitivity is in $r_x_3$ with an absolute value of 3.2. For reference: If the vehicle has a length of 10m, then a displacement of $r_x_3$ of 10 mm in the most sensitive direction results of a change in the utility function of 0.2 %, which I consider sufficiently stable.
+
+Furthermore, it can be seen that some thrusters are more sensitive to design changes than other ones. Thruster pair 2/5, for example is much less sensitive than pair 3/6. The dimension at which the highest sensitivity for a thruster occurs can also give insight into the purpose of the unit. Since thrusters 2/5 are more sensitive to changes in $r_y$ and $d_z$, it can be deduced that is most important in pitch maneuvers (torque around the x-axis). With this information, the solution can be altered manually to better integrate it with the rest of the design, while maintaining its performance as much as possible.
+
+//$
+//  (dif mat(vv(a), vv(u), vv(v))^T) / (dif vv(x)) = mat(I_(9 times 9), -I_(9 times 9))
+//$
+/*
+#figure(table(columns: 4,
+  $i$,       $1$,        $2$,       $3$,
+  $u$, $ 0.1407$, $-13.4541$, $-0.3078$,
+  $v$, $-0.1660$, $ 11.0299$, $-0.1425$,
+  $a$, $-0.1663$, $ -0.9259$, $-0.0001$
+))
+*/
+
+#let log_sens = (
+   (-1.2418, -0.0696, -3.1924,  1.2660,  0.0599,  3.1779),
+   ( 0.6157, -1.3783,  0.7497,  0.6488, -1.4026,  0.7667),
+   ( 0.8635, -0.0832, -0.6336,  0.8300, -0.0922, -0.8844),
+   (-1.9138, -0.0374, -0.6434, -2.0050,  0.0287, -1.0214),
+   (-1.2718, -0.3768, -0.8854,  1.4866,  0.3834,  0.7276),
+   (-1.2939,  1.1169,  3.0216,  1.1591, -1.3929, -2.3653),
+)
+#figure(
+  // Written with maximum obscurity
+  table(columns: 7, fill: (i, j) => if (i*j == 0) {white} else { gradient.linear(green, orange, space: oklab).sample(calc.abs(log_sens.at(j - 1).at(i - 1)) / 2.0 * 100%)}, $i$, ..range(1,7).map(x => $#x$), ..($r_x$, $r_y$, $r_z$, $d_x$, $d_y$, $d_z$).zip(log_sens).map(x => (x.at(0), ) + x.at(1).map(x => $#x$)).flatten(),), 
+
+  caption: [The derivatives with respect to different $vv(r)_i$ and $vv(d)_i$, colored by magnitude]
+) <tab:sensitivity-rd>
+
+= Conclusion & Recommendations <ch:conclusion>
+The objective of this optimization problem was to find the optimum thruster placement for a specific spacecraft. Nominally the 6 necaissary thrusters define a 36-dimensional design space with many quite complex constraints, as the thrusters need to conform to the surface of the spacecraft. With usage of position/normal maps however, the problem can be restated with 18 design variables, and a single (non active) constraint. With the use of symmetry, the amount of design variables can be further reduced to 9. This restatement comes with the cost of introducing noise, discontinuities and plateaux into the objective function, which limits the choice of optimization function. Ultimately, running powells conjugate direction method with a limited search radius from multiple randomly chosen starting points yields a good result most of the time. 
+
+The best solution found is presented in @fig:solution-3d. The sensitivity within the restated problem is very high, as one thruster lies on a sharp edge, corresponding to a near discontinuity in the objective function. The solution is much less sensitive in the original problem, which is much more representative of the physical reality.
+
+The success of this methodology relies heavily on the geometry and the UV-map that maps the 3d surface to a 2d plane. Geometry with less sharp corners and less flat planes will be easier to optimze. The choice of mapping also strongly affects the objective function. The reduction of design variables by employing symmetry required a specific mapping to work. For some geometries, the original 36-dimensional problem formulation might be more advantagous, since the objective function is much smoother, and can be looked into for future research. The main issue with that approach is to define the problem constraints mathematically.
 
 #bibliography("bibliography.bib")
-
 #pagebreak()
-= Appendices
-== Source code
+
+#set heading(numbering: "A")
+#counter(heading).update(0)
+= Tools used
+
+= Source code
 // (preferably, include this digitally)
-== Additional graphs/data
+//== Additional graphs/data
 // when applicable
