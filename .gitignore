@@ -1,0 +1,6 @@
+.vscode/*
+
+sdf_based/*
+models/sdfs/*
+models/raw/*
+outputs/outp_*.json
